@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.local
+*.db
+*.sqlite
+
+# Tauri
+apps/desktop/src-tauri/target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
