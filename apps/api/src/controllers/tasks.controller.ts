@@ -18,8 +18,13 @@ export async function parseAndCreateTask(req: Request, res: Response): Promise<v
     const parsed = await parseTaskFromText(input);
     const task = tasksService.create(parsed);
     res.status(201).json(task);
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("parseAndCreateTask:", err);
+    const status = (err as { status?: number }).status;
+    if (status === 429) {
+      res.status(402).json({ error: "Cota da Groq API esgotada. Verifique em console.groq.com" });
+      return;
+    }
     res.status(500).json({ error: "Erro ao processar tarefa com IA" });
   }
 }

@@ -1,11 +1,13 @@
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import { Task } from "./tasks.service";
 
-let _openai: OpenAI | null = null;
-function getClient(): OpenAI {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
+let _groq: Groq | null = null;
+function getClient(): Groq {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
 }
+
+const MODEL = "llama-3.1-8b-instant";
 
 export interface ParsedTask {
   title: string;
@@ -14,11 +16,24 @@ export interface ParsedTask {
   due_date: string | null;
 }
 
+function fallbackParse(input: string): ParsedTask {
+  const lower = input.toLowerCase();
+  const priority = lower.includes("urgente") || lower.includes("hoje") ? "high"
+    : lower.includes("amanha") || lower.includes("semana") ? "medium"
+    : "low";
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const due_date = lower.includes("amanha") ? tomorrow.toISOString().split("T")[0] : null;
+  return { title: input.slice(0, 80), description: null, priority, due_date };
+}
+
 export async function parseTaskFromText(input: string): Promise<ParsedTask> {
+  if (!process.env.GROQ_API_KEY) return fallbackParse(input);
+
   const today = new Date().toISOString().split("T")[0];
 
   const completion = await getClient().chat.completions.create({
-    model: "gpt-4o-mini",
+    model: MODEL,
     response_format: { type: "json_object" },
     messages: [
       {
@@ -40,8 +55,9 @@ export async function generateDailySummary(tasks: {
   completed: boolean;
   priority: string;
 }[]): Promise<string> {
+  if (!process.env.GROQ_API_KEY) return "GROQ_API_KEY nao configurada no .env da API.";
   const completion = await getClient().chat.completions.create({
-    model: "gpt-4o-mini",
+    model: MODEL,
     messages: [
       {
         role: "system",
@@ -54,11 +70,14 @@ export async function generateDailySummary(tasks: {
   return completion.choices[0].message.content ?? "Sem resumo disponivel.";
 }
 
-export async function suggestTaskOrder(tasks: Pick<Task, "id" | "title" | "priority" | "due_date">[]): Promise<number[]> {
+export async function suggestTaskOrder(
+  tasks: Pick<Task, "id" | "title" | "priority" | "due_date">[]
+): Promise<number[]> {
   if (tasks.length === 0) return [];
+  if (!process.env.GROQ_API_KEY) return tasks.map(t => t.id);
 
   const completion = await getClient().chat.completions.create({
-    model: "gpt-4o-mini",
+    model: MODEL,
     response_format: { type: "json_object" },
     messages: [
       {
@@ -69,12 +88,13 @@ Retorne JSON: { "order": [id1, id2, ...] } com todos os IDs fornecidos na ordem 
       },
       {
         role: "user",
-        content: JSON.stringify(tasks.map(t => ({ id: t.id, title: t.title, priority: t.priority, due_date: t.due_date }))),
+        content: JSON.stringify(
+          tasks.map(t => ({ id: t.id, title: t.title, priority: t.priority, due_date: t.due_date }))
+        ),
       },
     ],
   });
 
-  const raw = completion.choices[0].message.content ?? '{"order":[]}';
-  const parsed = JSON.parse(raw) as { order: number[] };
+  const parsed = JSON.parse(completion.choices[0].message.content ?? '{"order":[]}') as { order: number[] };
   return parsed.order;
 }

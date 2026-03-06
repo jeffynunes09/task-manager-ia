@@ -30,13 +30,13 @@ const App: React.FC = () => (
         </IonRouterOutlet>
 
         <IonTabBar slot="bottom">
-          <IonTabButton tab="tasks" href="/tasks">
-            <IonIcon icon={checkboxOutline} />
-            <IonLabel>Tarefas</IonLabel>
-          </IonTabButton>
           <IonTabButton tab="calendar" href="/calendar">
             <IonIcon icon={calendarOutline} />
             <IonLabel>Calendario</IonLabel>
+          </IonTabButton>
+          <IonTabButton tab="tasks" href="/tasks">
+            <IonIcon icon={checkboxOutline} />
+            <IonLabel>Tarefas</IonLabel>
           </IonTabButton>
           <IonTabButton tab="summary" href="/summary">
             <IonIcon icon={sparklesOutline} />
